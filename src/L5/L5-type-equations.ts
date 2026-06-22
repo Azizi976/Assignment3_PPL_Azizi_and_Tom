@@ -251,8 +251,9 @@ const solve = (equations: Equation[], sub: S.Sub): Res.Result<S.Sub> => {
 const canUnify = (eq: Equation): boolean =>
     T.isProcTExp(eq.left) && T.isProcTExp(eq.right) ?
         (eq.left.paramTEs.length === eq.right.paramTEs.length) :
-        // HW3 3.3.c - add missing branch
-        false;
+        // 3.3.c - two list types are always structurally unifiable (one item type each)
+        T.isListTExp(eq.left) && T.isListTExp(eq.right) ? true :
+            false;
 
 // Signature: splitEquation(equation)
 // Purpose: For an equation with unifyable type expressions,
@@ -269,5 +270,7 @@ const splitEquation = (eq: Equation): Equation[] =>
         R.zipWith(makeEquation,
             cons(eq.left.returnTE, eq.left.paramTEs),
             cons(eq.right.returnTE, eq.right.paramTEs)) :
-        // HW3 3.3.d - add missing branch
-        [];
+        // 3.3.d - split a list equation into an equation between the item types
+        (T.isListTExp(eq.left) && T.isListTExp(eq.right)) ?
+            [makeEquation(eq.left.itemTE, eq.right.itemTE)] :
+            [];

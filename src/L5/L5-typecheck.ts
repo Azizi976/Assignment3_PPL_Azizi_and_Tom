@@ -9,7 +9,7 @@ import {
 } from "./L5-ast";
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import {
-    isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
+    isProcTExp, isTVar, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
     parseTE, unparseTExp,
     BoolTExp, NumTExp, StrTExp, TExp, VoidTExp,
     makeFreshTVar as T,
@@ -222,7 +222,8 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
 //   Then typeof(exp) = void
 export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
     bind(typeofExp(exp.val, tenv), (valTE: TExp) =>
-        bind(checkEqualType(exp.var.texp, valTE, exp), _ => makeOk(makeVoidTExp())));
+        isTVar(exp.var.texp) ? makeOk(makeVoidTExp()) :
+            bind(checkEqualType(exp.var.texp, valTE, exp), _ => makeOk(makeVoidTExp())));
 
 // Purpose: compute the type of a program
 // Thread the TEnv through top-level expressions. A define extends the TEnv
@@ -245,8 +246,11 @@ export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> => {
             // If it's a define, verify it and update the environment
             isDefineExp(head) ?
                 bind(typeofDefine(head, env), (_: VoidTExp) =>
-                    // Extend the environment with the new variable for the rest of the expressions
-                    typeofProgramExps(tail, makeExtendTEnv([head.var.var], [head.var.texp], env))
+                    // Extend the env with the var. If unannotated (fresh TVar), bind it to
+                    // the inferred value type so later expressions see the real type.
+                    bind(typeofExp(head.val, env), (valTE: TExp) =>
+                        typeofProgramExps(tail, makeExtendTEnv([head.var.var],
+                            [isTVar(head.var.texp) ? valTE : head.var.texp], env)))
                 ) :
                 // Otherwise, check the expression and continue with the same environment
                 bind(typeofExp(head, env), (_: TExp) =>
