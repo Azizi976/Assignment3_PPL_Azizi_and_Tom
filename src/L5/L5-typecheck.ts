@@ -222,6 +222,7 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
 //   Then typeof(exp) = void
 export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
     bind(typeofExp(exp.val, tenv), (valTE: TExp) =>
+        // no type annotation (fresh TVar) - just take the value's type
         isTVar(exp.var.texp) ? makeOk(makeVoidTExp()) :
             bind(checkEqualType(exp.var.texp, valTE, exp), _ => makeOk(makeVoidTExp())));
 
@@ -246,8 +247,7 @@ export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> => {
             // If it's a define, verify it and update the environment
             isDefineExp(head) ?
                 bind(typeofDefine(head, env), (_: VoidTExp) =>
-                    // Extend the env with the var. If unannotated (fresh TVar), bind it to
-                    // the inferred value type so later expressions see the real type.
+                    // if no annotation - bind the var to the value's type for the rest
                     bind(typeofExp(head.val, env), (valTE: TExp) =>
                         typeofProgramExps(tail, makeExtendTEnv([head.var.var],
                             [isTVar(head.var.texp) ? valTE : head.var.texp], env)))
